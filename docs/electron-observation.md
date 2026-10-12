@@ -103,7 +103,10 @@ CLI SIGINT/SIGTERM requests cancellation and awaits owned-process cleanup.
 Window IDs, URLs, and cached titles come from one main-process Electron snapshot,
 so a crashed renderer does not require a successful renderer-side title query.
 Window instrumentation uses Electron's window-created event, including runtimes
-with a read-only `BrowserWindow` export. Preload configuration comes from the
+with a read-only `BrowserWindow` export. Window creation events also carry a
+projected options record (bounds, title, visibility flags, and scalar
+webPreferences) read from the created instance, so reconstruction does not
+depend on wrapping the constructor. Preload configuration comes from the
 window's runtime metadata, including Electron's optional internal preload
 descriptor when web preferences omit it. This descriptor is verified on
 Electron 44.7.0; runtimes that expose neither representation retain an unavailable

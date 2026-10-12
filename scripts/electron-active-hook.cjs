@@ -204,6 +204,8 @@ const record = (event) => {
     receiver: typeof raw.receiver === "string" ? raw.receiver : null,
     frame: typeof raw.frame === "string" ? raw.frame : null,
     target: typeof raw.target === "string" ? raw.target : null,
+    window_options:
+      typeof raw.window_options === "string" ? raw.window_options : null,
     argument_shapes: [],
     result_shape:
       typeof raw.result_shape === "string" ? raw.result_shape : null,
@@ -543,6 +545,83 @@ const patchWebContents = (webContents, windowId) => {
   boundaries.patchWindowOpenHandler(webContents, contentsId);
 };
 
+// Project observable BrowserWindow construction state without wrapping the
+// constructor (some runtimes expose a read-only BrowserWindow export).
+// Only JSON-scalar values are retained; anything else stays unknown rather
+// than becoming an invented option. Keys are canonicalized so the record is
+// stable across runs.
+const projectWindowOptions = (window) => {
+  if (window === null || window === undefined) return null;
+  const projection = {};
+  const readScalar = (read) => {
+    try {
+      const value = read();
+      if (typeof value === "string")
+        return value.length > 1024 ? value.slice(0, 1024) : value;
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      if (typeof value === "boolean") return value;
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  try {
+    const bounds =
+      typeof window.getBounds === "function" ? window.getBounds() : undefined;
+    if (bounds !== null && typeof bounds === "object") {
+      const picked = {};
+      for (const key of ["height", "width", "x", "y"]) {
+        const value = readScalar(() => bounds[key]);
+        if (typeof value === "number") picked[key] = value;
+      }
+      if (Object.keys(picked).length > 0) projection.bounds = picked;
+    }
+  } catch {
+    // Bounds are unavailable on this runtime; the projection stays partial.
+  }
+  const title = readScalar(() =>
+    typeof window.getTitle === "function" ? window.getTitle() : undefined,
+  );
+  if (title !== undefined) projection.title = title;
+  for (const [key, method] of [
+    ["fullscreen", "isFullScreen"],
+    ["maximized", "isMaximized"],
+    ["minimized", "isMinimized"],
+    ["visible", "isVisible"],
+  ]) {
+    const value = readScalar(() =>
+      typeof window[method] === "function" ? window[method]() : undefined,
+    );
+    if (value !== undefined) projection[key] = value;
+  }
+  try {
+    const preferences =
+      typeof window.webContents?.getLastWebPreferences === "function"
+        ? window.webContents.getLastWebPreferences()
+        : undefined;
+    if (preferences !== null && typeof preferences === "object") {
+      const entries = {};
+      let count = 0;
+      for (const key of Object.keys(preferences).sort()) {
+        if (count >= 64) break;
+        const value = readScalar(() => preferences[key]);
+        if (value !== undefined) {
+          entries[key] = value;
+          count += 1;
+        }
+      }
+      if (Object.keys(entries).length > 0) projection.webPreferences = entries;
+    }
+  } catch {
+    // WebPreferences are unavailable on this runtime.
+  }
+  const keys = Object.keys(projection).sort();
+  if (keys.length === 0) return null;
+  const canonical = {};
+  for (const key of keys) canonical[key] = projection[key];
+  return JSON.stringify(canonical);
+};
+
 const patchWindows = (app) => {
   if (app === null || app === undefined) return;
   app.on("browser-window-created", (_event, window) => {
@@ -550,6 +629,7 @@ const patchWindows = (app) => {
     recordRuntime("window-lifecycle", "created", "completed", {
       target: targetId,
       capture_method: "event-emitter",
+      window_options: projectWindowOptions(window),
     });
     try {
       // Electron 44 separates the preload descriptor from WebPreferences.

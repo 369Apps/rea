@@ -22,6 +22,7 @@ it("projects hook retention and dropped event families through the result schema
     capture_method: "api-wrapper" as const,
     artifact_path: null,
     artifact_sha256: null,
+    window_options: null,
     error: false,
   };
   const result = projectElectronActiveCapture(
@@ -104,6 +105,7 @@ it("keeps renderer coverage unavailable when only the main process was observed"
             capture_method: "event-emitter",
             artifact_path: null,
             artifact_sha256: null,
+            window_options: null,
             error: false,
           },
         ],

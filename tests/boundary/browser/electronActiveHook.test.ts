@@ -43,6 +43,12 @@ class BrowserWindow extends EventEmitter {
     this.webContents = new WebContents();
     this.options = options;
     this.webContents.getLastWebPreferences = () => options.webPreferences;
+    this.getBounds = () => ({ x: 10, y: 20, width: 800, height: 600 });
+    this.getTitle = () => "Fixture window";
+    this.isVisible = () => true;
+    this.isMinimized = () => false;
+    this.isMaximized = () => false;
+    this.isFullScreen = () => false;
     app.emit("browser-window-created", {}, this);
   }
 }
@@ -190,6 +196,23 @@ it("retains active hook evidence within its event-retention budget", async () =>
       expect.objectContaining({ kind: "popup-attempt", phase: "blocked" }),
     ]),
   );
+  const created = snapshot.events.find(
+    (event) => event.kind === "window-lifecycle" && event.event === "created",
+  );
+  expect(created).toMatchObject({
+    phase: "completed",
+    target: "window:3",
+    capture_method: "event-emitter",
+  });
+  expect(JSON.parse(created?.window_options as string)).toEqual({
+    bounds: { x: 10, y: 20, width: 800, height: 600 },
+    fullscreen: false,
+    maximized: false,
+    minimized: false,
+    title: "Fixture window",
+    visible: true,
+    webPreferences: { preload: "/approved/preload.js" },
+  });
   expect(result.default_popup_decision).toEqual({ action: "deny" });
   expect(result.popup_decision).toEqual({ action: "deny" });
   expect(

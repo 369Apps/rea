@@ -134,6 +134,7 @@ export const electronActiveTimelineEventSchema = z.strictObject({
   receiver: z.string().nullable(),
   frame: z.string().nullable(),
   target: z.string().nullable(),
+  window_options: z.string().nullable(),
   argument_shapes: z.array(z.string()),
   result_shape: z.string().nullable(),
   process_type: z.string().nullable(),

@@ -19,6 +19,7 @@ export const createElectronActiveObservationFixtureResult = (
     receiver: "main",
     frame: null,
     target: null,
+    window_options: null,
     argument_shapes: ["string"],
     result_shape: "object",
     process_type: "main",
